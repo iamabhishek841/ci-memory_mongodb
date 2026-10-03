@@ -10,9 +10,9 @@ later investigation. A matching error message alone is not proof of the same cau
 ## Current status
 
 The repository contains the TypeScript API foundation, health/readiness
-endpoints, MongoDB connection checker, and an executable integration-test
-reproducer. Run persistence, AI investigation, skill memory, and the dashboard
-are not implemented yet.
+endpoints, MongoDB connection checker, an executable integration-test reproducer,
+and Atlas-backed run history with API execution and aggregation. AI investigation,
+skill memory, and the dashboard are not implemented yet.
 
 ## Run locally
 
@@ -87,9 +87,53 @@ process kill can leave run-prefixed collections; no broad database cleanup is ru
 Connection/infrastructure errors exit 2 and do not masquerade as test failures.
 
 ```sh
-npm test                 # Namespace/ownership checks; no credentials required.
+npm test                 # Ownership and HTTP validation checks; no credentials required.
 npm run test:integration # Real Atlas operations; requires configured .env.
 ```
+
+## Execute and browse saved runs
+
+Start the API with `npm start` after building. The API executes authored fixtures
+and saves completed results in the `runs` collection of `MONGODB_DB`.
+Outcome, ordered events, schema version, and timestamps are inserted as one
+document. Test assertions can fail while the HTTP request succeeds: `201` means
+the execution result was saved, and its `status` can be `failed` or `passed`.
+Infrastructure or persistence errors return `503`; they do not become failed
+test records. An execution interrupted before the save is not persisted yet.
+
+```powershell
+$base = 'http://127.0.0.1:3001'
+$body = @{ scenario = 'billing'; scope = 'shared' } | ConvertTo-Json
+$run = Invoke-RestMethod "$base/runs" -Method Post -ContentType 'application/json' -Body $body
+Invoke-RestMethod "$base/runs/$($run.runId)"
+Invoke-RestMethod "$base/runs?limit=10&status=failed"
+Invoke-RestMethod "$base/runs/summary"
+```
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /runs` | Execute `scenario`, `scope`, and optional `schedule`; return the saved trace. |
+| `GET /runs` | Latest summaries, without events; filters `scenario`, `scope`, `status`. |
+| `GET /runs/:runId` | Full saved result and evidence in order. |
+| `GET /runs/summary` | MongoDB aggregation of counts and mean duration by scenario, scope, and outcome. |
+
+History defaults to 20 records and allows `limit=1..50`. Pass the returned
+`nextCursor` as `cursor` while preserving filters for the next page. Ordering
+uses start time and run ID, rather than unstable offset pages. Compound indexes
+support repository history and comparisons. Duplicate run IDs cannot overwrite
+existing evidence.
+
+`CI_TEAM_ID` and `CI_REPOSITORY_ID` set the context on the server. Every history,
+detail, cursor, and aggregation query includes both fields. Clients cannot set
+them in the run request. The default context is this hackathon repository.
+This local API has no user authentication yet; these query boundaries are not
+a substitute for authentication before deployment. It listens only on loopback,
+requires JSON for writes, rejects cross-origin run creation, caps bodies at
+4 KB, and permits at most two simultaneous executions per process.
+
+The CLI remains a standalone reproducer and does not save history. Use `POST /runs`
+for persistent executions. Integration checks use a fresh, named test collection
+and remove it afterward; normal application history is retained.
 
 For development, run `npm run dev` in a separate terminal to watch and compile
 TypeScript, then restart `npm start` after changes. This initial dev command
