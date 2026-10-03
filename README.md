@@ -9,10 +9,10 @@ later investigation. A matching error message alone is not proof of the same cau
 
 ## Current status
 
-The repository currently contains the TypeScript API foundation, local health
-and database-readiness endpoints, and a MongoDB connection checker. The test
-runner, run persistence, AI investigation, skill memory, and dashboard are not
-implemented yet.
+The repository contains the TypeScript API foundation, health/readiness
+endpoints, MongoDB connection checker, and an executable integration-test
+reproducer. Run persistence, AI investigation, skill memory, and the dashboard
+are not implemented yet.
 
 ## Run locally
 
@@ -49,6 +49,47 @@ The environment file is loaded by the API regardless of your terminal working
 directory. The checker never prints the URI or raw driver error. A successful
 ping does not create application collections; those will appear after the
 first application write. `.env` is ignored by Git.
+
+## Run the failure reproducer
+
+Requires a working `.env` database connection and permission to create and drop
+temporary collections in `MONGODB_DB`. Build first with `npm run build`.
+
+```sh
+# Deliberately exits 1: another worker deletes a seeded record before its read.
+npm run demo -- --scenario billing --scope shared
+
+# Exits 0: worker-scoped collections preserve the reader's record.
+npm run demo -- --scenario billing --scope worker
+
+# The second module supports the same reproducible shared-state problem.
+npm run demo -- --scenario orders --scope shared
+
+# Same assertion, different cause: isolation still exits 1.
+npm run demo -- --scenario missing-seed --scope worker
+
+# A different scheduling order makes the unfixed shared fixture pass.
+npm run demo -- --scenario billing --scope shared --schedule cleanup-before-write
+```
+
+The runner starts two Node worker threads, each with its own MongoDB connection.
+It controls the operation ordering with messages, rather than timing sleeps.
+The shared fixture performs a real insert, collection-wide cleanup, read, and
+assertion. Each JSON result contains actual operation outcomes and an ordered
+event trace. This controlled reproducer models shared-test cleanup interference;
+it does not estimate how often a production test would fail randomly.
+
+Only authored fixture commands are supported. This is not an arbitrary repository
+executor or an OS/container sandbox. No AI code is executed at this milestone.
+Collection names include a fresh run ID, and all destructive operations validate
+ownership. Normal completion removes only those temporary collections. An abrupt
+process kill can leave run-prefixed collections; no broad database cleanup is run.
+Connection/infrastructure errors exit 2 and do not masquerade as test failures.
+
+```sh
+npm test                 # Namespace/ownership checks; no credentials required.
+npm run test:integration # Real Atlas operations; requires configured .env.
+```
 
 For development, run `npm run dev` in a separate terminal to watch and compile
 TypeScript, then restart `npm start` after changes. This initial dev command
