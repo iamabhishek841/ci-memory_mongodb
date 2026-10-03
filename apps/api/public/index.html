@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102e27">
+  <title>CI Memory · Run lab</title>
+  <link rel="icon" href="/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/dashboard.css">
+  <script src="/dashboard.js" type="module"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><img src="/mark.svg" alt="" width="36" height="36"><span>CI Memory<small>Every run leaves evidence.</small></span></a>
+    <div class="workspace-label">WORKSPACE</div>
+    <a href="#lab" class="nav-link active"><span aria-hidden="true">◫</span> Run lab <span class="nav-count" id="nav-count">—</span></a>
+    <a href="#history" class="nav-link"><span aria-hidden="true">≡</span> Run history</a>
+    <a href="#comparison" class="nav-link"><span aria-hidden="true">↔</span> Comparison</a>
+    <div class="sidebar-note"><span class="tiny-tag">MONGODB ATLAS</span><p>Real executions.<br>Persistent evidence.</p><small>Run history is scoped to the team and repository configured on this server.</small></div>
+    <div class="sidebar-footer"><span class="avatar">AB</span><div>Student Builder Day<small>Local development workspace</small></div></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong>Run lab</strong></div><div class="connection" id="connection"><span class="dot"></span><span id="connection-label">Checking Atlas</span></div></header>
+    <main id="lab">
+      <section class="page-heading"><div><div class="eyebrow">CI MEMORY / RUN LAB</div><h1>See the failure.<br class="mobile-break"> Keep the evidence.</h1><p>Reproduce a test failure, check the fix, and inspect what actually happened.</p></div><button class="button secondary" id="refresh" type="button"><span aria-hidden="true">↻</span> Refresh</button></section>
+      <div class="project-line"><span class="repo-icon" aria-hidden="true">⌘</span><span id="repository">Current repository</span><span class="project-separator">·</span><span>Authored integration fixtures</span></div>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section class="metrics" aria-label="Saved run totals">
+        <article class="metric"><div class="metric-label">Saved runs <span aria-hidden="true">◫</span></div><div class="metric-value" id="total-count">—</div><small>Persisted in MongoDB Atlas</small></article>
+        <article class="metric"><div class="metric-label">Passing assertions <span class="green" aria-hidden="true">✓</span></div><div class="metric-value green" id="passed-count">—</div><small>Checked by the fixture runner</small></article>
+        <article class="metric"><div class="metric-label">Failing assertions <span class="red" aria-hidden="true">!</span></div><div class="metric-value red" id="failed-count">—</div><small>Evidence available for inspection</small></article>
+        <article class="metric"><div class="metric-label">Average execution <span aria-hidden="true">◷</span></div><div class="metric-value" id="average-duration">—</div><small>Across saved runs in this repository</small></article>
+      </section>
+      <section class="lab-card">
+        <div class="section-heading"><div><h2>Start with a real failure</h2><p>Two workers. Actual database operations. A controlled execution order.</p></div><span class="tag">LIVE RUNNER</span></div>
+        <div class="demo-cases">
+          <button class="case-button" data-scenario="billing" data-scope="shared"><span class="case-number red-soft">01</span><span><strong>Reproduce interference</strong><small>A shared cleanup deletes another worker’s record.</small></span><span class="case-arrow" aria-hidden="true">↗</span></button>
+          <button class="case-button" data-scenario="billing" data-scope="worker"><span class="case-number green-soft">02</span><span><strong>Verify worker isolation</strong><small>Separate collections preserve the reader’s record.</small></span><span class="case-arrow" aria-hidden="true">↗</span></button>
+          <button class="case-button" data-scenario="missing-seed" data-scope="worker"><span class="case-number amber-soft">03</span><span><strong>Check a different cause</strong><small>The same assertion fails when its seed is missing.</small></span><span class="case-arrow" aria-hidden="true">↗</span></button>
+        </div>
+        <form id="run-form" class="run-form">
+          <label>Scenario<select id="scenario"><option value="billing">Billing</option><option value="orders">Orders</option><option value="missing-seed">Missing seed</option></select></label>
+          <label>Collection scope<select id="scope"><option value="shared">Shared across workers</option><option value="worker">One per worker</option></select></label>
+          <label>Execution order<select id="schedule"><option value="cleanup-between-write-and-read">Insert → cleanup → read</option><option value="cleanup-before-write">Cleanup → insert → read</option></select></label>
+          <button class="button primary" id="run-button" type="submit"><span aria-hidden="true">▷</span> Run fixture</button>
+        </form>
+      </section>
+      <div class="work-grid">
+        <section class="card history-card" id="history">
+          <div class="section-heading"><div><h2>Run history</h2><p>Saved outcomes, newest first.</p></div><span class="mini-label">ATLAS RECORDS</span></div>
+          <div class="filters"><label class="sr-only" for="filter-status">Filter outcome</label><select id="filter-status"><option value="">All outcomes</option><option value="passed">Passed</option><option value="failed">Failed</option></select><label class="sr-only" for="filter-scenario">Filter scenario</label><select id="filter-scenario"><option value="">All scenarios</option><option value="billing">Billing</option><option value="orders">Orders</option><option value="missing-seed">Missing seed</option></select></div>
+          <div class="table-scroll"><table><thead><tr><th>Outcome / scenario</th><th>Scope</th><th>Duration</th><th>Started</th></tr></thead><tbody id="history-rows"></tbody></table></div>
+          <div id="history-empty" class="empty-state" hidden>No saved runs match these filters.</div>
+          <div class="table-footer"><span id="history-count">Loading history…</span><button class="button text-button" id="load-more" hidden>Load more ↓</button></div>
+        </section>
+        <section class="card evidence-card" id="evidence">
+          <div class="section-heading"><div><h2>Execution evidence</h2><p id="evidence-subtitle">Select a run to inspect its trace.</p></div><button class="button icon-button" id="copy-evidence" title="Copy full run JSON" aria-label="Copy full run JSON" disabled>⧉</button></div>
+          <div id="evidence-empty" class="empty-state">The complete event trace appears here after a run is saved.</div>
+          <div id="evidence-content" hidden>
+            <div class="evidence-meta"><span id="detail-status" class="status-pill"></span><code id="detail-id"></code></div>
+            <div class="finding"><div class="eyebrow">OBSERVED EVIDENCE</div><h3 id="finding-title"></h3><p id="finding-body"></p></div>
+            <ol class="timeline" id="timeline"></ol>
+            <div class="evidence-footer"><span class="green" aria-hidden="true">✓</span> <span id="cleanup-label"></span></div>
+          </div>
+        </section>
+      </div>
+      <section class="card comparison-card" id="comparison"><div class="section-heading"><div><h2>Compare the outcomes</h2><p>Counts and average duration, aggregated directly from saved Atlas records.</p></div><span class="mini-label">REPOSITORY SCOPE</span></div><div id="comparison-rows" class="comparison-rows"></div></section>
+      <footer class="page-footer"><span>CI Memory <span class="footer-dot">·</span> MongoDB Student Builder Day</span><span>Controlled reproducer · No AI diagnosis yet</span></footer>
+    </main>
+  </div>
+</body>
+</html>

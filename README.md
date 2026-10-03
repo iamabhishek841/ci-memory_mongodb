@@ -11,8 +11,8 @@ later investigation. A matching error message alone is not proof of the same cau
 
 The repository contains the TypeScript API foundation, health/readiness
 endpoints, MongoDB connection checker, an executable integration-test reproducer,
-and Atlas-backed run history with API execution and aggregation. AI investigation,
-skill memory, and the dashboard are not implemented yet.
+and Atlas-backed run history with API execution, aggregation, and a live dashboard.
+AI investigation and skill memory are not implemented yet.
 
 ## Run locally
 
@@ -92,6 +92,14 @@ npm run test:integration # Real Atlas operations; requires configured .env.
 ```
 
 ## Execute and browse saved runs
+
+Open <http://127.0.0.1:3001/> for the dashboard. Its three case buttons execute
+real fixtures through `POST /runs`; they do not play recorded results. History,
+evidence, totals, and comparison bars all load saved Atlas records. Filters and
+pagination preserve the repository context. Select a row to inspect its ordered
+trace, or copy the complete result as JSON. A selected run has a `#run=...` link
+that restores its evidence on reload. Observed-evidence summaries are deterministic
+descriptions of trace events, not AI diagnoses.
 
 Start the API with `npm start` after building. The API executes authored fixtures
 and saves completed results in the `runs` collection of `MONGODB_DB`.
