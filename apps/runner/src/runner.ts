@@ -11,6 +11,7 @@ const envPath = fileURLToPath(new URL("../../../.env", import.meta.url));
 if (existsSync(envPath)) loadEnvFile(envPath);
 
 interface RunOptions {
+  repair?: "restore_seed";
   scenario: Scenario;
   scope: Scope;
   schedule?: Schedule;
@@ -75,13 +76,14 @@ class FixtureWorker {
   }
 
   async stop(): Promise<void> {
-    try { await this.command("stop"); } catch { /* Terminate the owned fixture worker below. */ }
+    try { await this.command("stop"); } catch {}
     this.rejectPending(new Error("Fixture worker stopped."));
     await this.worker.terminate();
   }
 }
 
 export async function runFixture(options: RunOptions): Promise<RunResult> {
+  if (options.repair !== undefined && options.repair !== "restore_seed") throw new Error("Unsupported fixture repair.");
   if (!scenarios.includes(options.scenario)) throw new Error("Unsupported demo scenario.");
   if (options.scope !== "shared" && options.scope !== "worker") throw new Error("Unsupported collection scope.");
   const schedule = options.schedule ?? "cleanup-between-write-and-read";
@@ -113,7 +115,7 @@ export async function runFixture(options: RunOptions): Promise<RunResult> {
     const recordId = options.scenario === "orders" ? "order-204" : "customer-101";
     const recordLabel = options.scenario === "orders" ? "Order awaiting dispatch" : "Billing customer";
     for (const workerId of ["reader", "cleaner"] as const) {
-      const fixture: Fixture = { scenario: options.scenario, recordId, recordLabel, seedEnabled: options.scenario !== "missing-seed", collection: collectionName(runId, options.scope, workerId) };
+      const fixture: Fixture = { scenario: options.scenario, recordId, recordLabel, seedEnabled: options.scenario !== "missing-seed" || options.repair === "restore_seed", collection: collectionName(runId, options.scope, workerId) };
       workers.push(new FixtureWorker({ uri, database, runId, workerId, fixture }, emit));
     }
     const reader = workers[0]!;
@@ -136,5 +138,5 @@ export async function runFixture(options: RunOptions): Promise<RunResult> {
       if (createdNames.length) emit({ at: new Date().toISOString(), workerId: "runner", operation: "collections_removed", message: "Removed only this run's temporary collections." });
     } finally { await cleanupClient.close(); }
   }
-  return { runId, scenario: options.scenario, scope: options.scope, schedule, status: passed ? "passed" : "failed", startedAt: new Date(started).toISOString(), durationMs: Date.now() - started, events, isolation: "temporary_collections", cleanup: "completed" };
+  return { ...(options.repair ? { repair: options.repair } : {}), runId, scenario: options.scenario, scope: options.scope, schedule, status: passed ? "passed" : "failed", startedAt: new Date(started).toISOString(), durationMs: Date.now() - started, events, isolation: "temporary_collections", cleanup: "completed" };
 }

@@ -44,6 +44,7 @@ export interface WorkerMessage {
 }
 
 export interface RunResult {
+  repair?: "restore_seed";
   runId: string;
   scenario: Scenario;
   scope: Scope;

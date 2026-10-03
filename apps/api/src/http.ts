@@ -94,6 +94,50 @@ export function createApiServer(getService: () => Promise<RunService>) {
       send(response, 200, { groups: await (await getService()).store.summary() });
       return;
     }
+    if (request.method === "GET" && url.pathname === "/skills") {
+      const investigator = (await getService()).investigations;
+      if (!investigator) throw new RequestError(503, "Repair memory is unavailable.");
+      send(response, 200, { skills: await investigator.memory.listSkills() });
+      return;
+    }
+    const skillMatch = /^\/skills\/([a-f0-9]{32})\/(markdown|revoke)$/.exec(url.pathname);
+    if (skillMatch && request.method === "GET" && skillMatch[2] === "markdown") {
+      const investigator = (await getService()).investigations;
+      if (!investigator) throw new RequestError(503, "Repair memory is unavailable.");
+      const skill = await investigator.memory.getSkill(skillMatch[1]!);
+      if (!skill) throw new RequestError(404, "Skill not found in this repository scope.");
+      response.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Content-Disposition": `attachment; filename="SKILL-${skill._id}.md"`, "Cache-Control": "no-store" });
+      response.end(skill.markdown);
+      return;
+    }
+    if (skillMatch && request.method === "POST" && skillMatch[2] === "revoke") {
+      requireWriteAccess(request);
+      const body = await readBody(request);
+      if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length) throw new RequestError(400, "Send an empty JSON object.");
+      const investigator = (await getService()).investigations;
+      if (!investigator) throw new RequestError(503, "Repair memory is unavailable.");
+      const revoked = await investigator.memory.revoke(skillMatch[1]!);
+      send(response, revoked ? 200 : 404, { revoked });
+      return;
+    }
+    const investigationMatch = /^\/runs\/([a-f0-9]{32})\/(investigate|investigation)$/.exec(url.pathname);
+    if (investigationMatch && request.method === "POST" && investigationMatch[2] === "investigate") {
+      requireWriteAccess(request);
+      const body = await readBody(request);
+      if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length) throw new RequestError(400, "Send an empty JSON object.");
+      const investigator = (await getService()).investigations;
+      if (!investigator) throw new RequestError(503, "Investigation service is unavailable.");
+      send(response, 201, await investigator.investigate(investigationMatch[1]!));
+      return;
+    }
+    if (investigationMatch && request.method === "GET" && investigationMatch[2] === "investigation") {
+      const investigator = (await getService()).investigations;
+      if (!investigator) throw new RequestError(503, "Investigation service is unavailable.");
+      const run = await (await getService()).store.get(investigationMatch[1]!);
+      if (!run) throw new RequestError(404, "Run not found in this repository scope.");
+      send(response, 200, { investigation: await investigator.memory.latest(investigationMatch[1]!) });
+      return;
+    }
     const match = /^\/runs\/([^/]+)$/.exec(url.pathname);
     if (request.method === "GET" && match) {
       if (url.search) throw new RequestError(400, "Run detail does not accept query parameters.");

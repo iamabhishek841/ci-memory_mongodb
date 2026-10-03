@@ -3,16 +3,18 @@
 Investigate CI failures, verify fixes, and reuse team knowledge with MongoDB Atlas and AI.
 
 CI Memory is a hackathon project for teams that repeatedly investigate similar
-integration-test failures. The planned workflow collects evidence, reproduces a
-failure, validates a proposed patch, and saves a scoped repair procedure for a
-later investigation. A matching error message alone is not proof of the same cause.
+integration-test failures. It reproduces authored failures against MongoDB, stores
+ordered evidence in Atlas, checks scoped repair memory before asking Gemini,
+independently verifies bounded repairs, and saves only proven repairs for later use.
+A matching error message alone is not proof of the same cause.
 
 ## Current status
 
 The repository contains the TypeScript API foundation, health/readiness
 endpoints, MongoDB connection checker, an executable integration-test reproducer,
 and Atlas-backed run history with API execution, aggregation, and a live dashboard.
-AI investigation and skill memory are not implemented yet.
+Gemini investigation, independent repair verification, and scoped Markdown skill
+memory are implemented for the authored fixture contracts.
 
 ## Run locally
 
@@ -80,7 +82,8 @@ event trace. This controlled reproducer models shared-test cleanup interference;
 it does not estimate how often a production test would fail randomly.
 
 Only authored fixture commands are supported. This is not an arbitrary repository
-executor or an OS/container sandbox. No AI code is executed at this milestone.
+executor or an OS/container sandbox. The runner never executes AI-generated code;
+AI proposals are validated separately and can only select bounded authored repairs.
 Collection names include a fresh run ID, and all destructive operations validate
 ownership. Normal completion removes only those temporary collections. An abrupt
 process kill can leave run-prefixed collections; no broad database cleanup is run.
@@ -135,7 +138,8 @@ existing evidence.
 detail, cursor, and aggregation query includes both fields. Clients cannot set
 them in the run request. The default context is this hackathon repository.
 This local API has no user authentication yet; these query boundaries are not
-a substitute for authentication before deployment. It listens only on loopback,
+a substitute for user authentication. Hosted writes require a demo access key.
+By default local development listens only on loopback,
 requires JSON for writes, rejects cross-origin run creation, caps bodies at
 4 KB, and permits at most two simultaneous executions per process.
 
@@ -154,9 +158,9 @@ Use the repository's `render.yaml` with Render **New > Blueprint**, connected to
 is `npm ci --include=dev && npm run build`; the start command is `npm start`.
 Production binds to `0.0.0.0` and honors Render's `PORT`. Node 24 is configured.
 
-Provide the complete `MONGODB_URI` privately during Blueprint setup. Never add it
-to Git. `MONGODB_DB=ci_memory` preserves the existing demo history. In the Render
-service's **Connect > Outbound** panel, copy its outbound IP ranges into Atlas
+Provide the complete `MONGODB_URI` and `GEMINI_API_KEY` privately during Blueprint
+setup. Never add them to Git. `MONGODB_DB=ci_memory` preserves the existing demo
+history. In the Render service's **Connect > Outbound** panel, copy its outbound IP ranges into Atlas
 **Network Access**; your laptop's allowed IP does not cover the hosted server.
 
 Render generates `DEMO_WRITE_TOKEN`. Copy it from that service's environment panel
@@ -174,6 +178,39 @@ Keep the local app available if the hosted instance is still starting.
 Source: [Render Web Services](https://render.com/docs/web-services),
 [Free services](https://render.com/docs/free),
 [Outbound IP ranges](https://render.com/docs/outbound-ip-addresses).
+
+## AI investigation and repair memory
+
+Set `GEMINI_API_KEY` privately in local `.env` and Render Environment. The default
+`GEMINI_MODEL` is `gemini-2.5-flash`; this setting can be overridden on the server.
+Select a failing run and click **Investigate & verify repair**. The service first
+queries scoped active skills with the current fixture environment contract and
+an unexpired seven-day lifetime. Ordered insert/cleanup/read evidence determines
+the cause signature. A matching error message alone does not authorize reuse.
+
+For a new cause, Gemini receives the authored fixture evidence and proposes a
+bounded action with event citations. Output is validated before execution. The
+supported actions are worker collection isolation or restoring the omitted seed
+with isolation. No generated shell commands or arbitrary source code are executed.
+A fresh runner executes the change under the failing insert-cleanup-read order.
+Only a passing verification can create a skill. AI errors/quota limits are shown
+honestly; no deterministic response is presented as an AI result.
+
+Atlas stores `investigations` and `skills`, including source/verification run IDs,
+the model or memory source, rejected reuse candidates, and Markdown `SKILL.md`
+content. Skill version 1 includes its context, applicability, action, and evidence.
+Skills can be downloaded and revoked from the dashboard; revoked/expired skills
+are excluded from later reuse. This MVP supports the two authored fixture repair
+contracts, not arbitrary repository editing or a general CI executor.
+
+Demo: investigate a shared billing failure to learn isolation; run shared orders
+and investigate to reuse it without an LLM call; run missing-seed and investigate
+to reject isolation and verify a different repair. Already learned skills remain
+in Atlas across deployments. Revoke a skill first if demonstrating a new diagnosis.
+
+Endpoints: `POST /runs/:id/investigate`, `GET /runs/:id/investigation`, `GET /skills`,
+`GET /skills/:id/markdown`, `POST /skills/:id/revoke`. Write routes use the same
+demo access key and origin rules as fixture execution.
 
 ## Incremental delivery
 

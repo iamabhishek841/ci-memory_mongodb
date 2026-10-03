@@ -60,13 +60,16 @@
           <div id="evidence-content" hidden>
             <div class="evidence-meta"><span id="detail-status" class="status-pill"></span><code id="detail-id"></code></div>
             <div class="finding"><div class="eyebrow">OBSERVED EVIDENCE</div><h3 id="finding-title"></h3><p id="finding-body"></p></div>
+            <div class="investigation-controls"><button class="button primary" id="investigate-button" disabled>Investigate &amp; verify repair</button><p>Check scoped memory first; ask Gemini for a new proposal, then verify with a real run.</p></div>
+            <div id="investigation-result" class="investigation-result" hidden></div>
             <ol class="timeline" id="timeline"></ol>
             <div class="evidence-footer"><span class="green" aria-hidden="true">✓</span> <span id="cleanup-label"></span></div>
           </div>
         </section>
       </div>
       <section class="card comparison-card" id="comparison"><div class="section-heading"><div><h2>Compare the outcomes</h2><p>Counts and average duration, aggregated directly from saved Atlas records.</p></div><span class="mini-label">REPOSITORY SCOPE</span></div><div id="comparison-rows" class="comparison-rows"></div></section>
-      <footer class="page-footer"><span>CI Memory <span class="footer-dot">·</span> MongoDB Student Builder Day</span><span>Controlled reproducer · No AI diagnosis yet</span></footer>
+      <section class="card comparison-card" id="skills"><div class="section-heading"><div><h2>Verified repair memory</h2><p>Scoped skills are created only after a passing verification. Revoke outdated assumptions.</p></div><span class="mini-label">ATLAS MEMORY</span></div><div id="skill-list" class="skill-list"></div></section>
+      <footer class="page-footer"><span>CI Memory <span class="footer-dot">·</span> MongoDB Student Builder Day</span><span>Gemini proposals · Independent MongoDB verification</span></footer>
     </main>
   </div>
 </body>

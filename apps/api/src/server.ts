@@ -4,6 +4,8 @@ import { closeDatabase, connectDatabase } from "./database.js";
 import { createApiServer } from "./http.js";
 import { RunService } from "./run-service.js";
 import { getRunContext, RunStore } from "./run-store.js";
+import { MemoryStore } from "./memory-store.js";
+import { InvestigationService } from "./investigation-service.js";
 
 const port = getPort();
 const host = getHost();
@@ -17,7 +19,9 @@ async function getService(): Promise<RunService> {
     service = connectDatabase().then(async database => {
       const store = new RunStore(database, context);
       await store.initialize();
-      return new RunService(store);
+      const memory = new MemoryStore(database, context);
+      await memory.initialize();
+      return new RunService(store, new InvestigationService(store, memory));
     }).catch(error => { service = undefined; throw error; });
   }
   return service;

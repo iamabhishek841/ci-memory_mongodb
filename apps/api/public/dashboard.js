@@ -95,7 +95,7 @@ function renderHistory() {
   if (state.runs.length) $("#repository").textContent = state.runs[0].repositoryId;
 }
 
-async function loadHistory(append = false) {
+async function loadHistory(append = false, preserveSelection = false) {
   const version = ++state.historyVersion;
   const params = new URLSearchParams({ limit: "10" });
   if ($("#filter-status").value) params.set("status", $("#filter-status").value);
@@ -109,7 +109,7 @@ async function loadHistory(append = false) {
     state.runs = append ? [...state.runs, ...data.runs] : data.runs;
     state.cursor = data.nextCursor;
     renderHistory();
-    if (!append && state.runs.length && !state.runs.some(run => run.runId === state.selected?.runId)) await selectRun(state.runs[0].runId);
+    if (!preserveSelection && !append && state.runs.length && !state.runs.some(run => run.runId === state.selected?.runId)) await selectRun(state.runs[0].runId);
   } catch (error) {
     if (version !== state.historyVersion) return;
     $("#history-count").textContent = "History unavailable";
@@ -169,6 +169,8 @@ function renderEvidence(run) {
     target.append(row);
   }
   $("#cleanup-label").textContent = "Fixture collections removed · Evidence retained in Atlas";
+  $("#investigate-button").disabled = run.status !== "failed" || state.busy;
+  $("#investigation-result").hidden = true;
 }
 
 async function selectRun(runId) {
@@ -182,6 +184,7 @@ async function selectRun(runId) {
     renderEvidence(run);
     renderHistory();
     history.replaceState(null, "", `#run=${runId}`);
+    void loadInvestigation(runId);
   } catch (error) {
     if (version !== state.selectionVersion) return;
     $("#evidence-subtitle").textContent = "Evidence unavailable";
@@ -191,7 +194,7 @@ async function selectRun(runId) {
 
 async function refresh() {
   if (!state.busy) notice("");
-  await Promise.all([checkConnection(), loadHistory(), loadSummary().catch(error => notice(error.message, "error"))]);
+  await Promise.all([checkConnection(), loadHistory(), loadSummary().catch(error => notice(error.message, "error")), loadSkills().catch(error => notice(error.message, "error"))]);
 }
 
 async function execute(scenario, scope, schedule = "cleanup-between-write-and-read") {
@@ -224,9 +227,106 @@ async function execute(scenario, scope, schedule = "cleanup-between-write-and-re
     clearInterval(timer);
     state.busy = false;
     for (const control of controls) control.disabled = false;
+    $("#investigate-button").disabled = state.selected?.status !== "failed";
     void checkConnection();
   }
 }
+
+function authorizedHeaders() {
+  if (!state.writeEnabled) throw new Error("This demo is read-only. Its operator must enable write access.");
+  const headers = { "Content-Type": "application/json" };
+  if (state.writeAccessRequired) {
+    const key = $("#demo-key").value.trim();
+    if (!key) { $("#demo-key").focus(); throw new Error("Enter the demo access key before investigating."); }
+    headers.Authorization = `Bearer ${key}`;
+  }
+  return headers;
+}
+
+function renderInvestigation(result) {
+  const target = $("#investigation-result");
+  target.hidden = false;
+  target.className = `investigation-result ${result.status === "rejected" ? "rejected" : ""}`;
+  target.replaceChildren();
+  target.append(element("strong", "", result.status === "verified" ? "✓ Repair verified by a real MongoDB run" : "Repair proposal rejected; no skill learned"));
+  target.append(element("p", "", `${result.source === "memory" ? "Reused scoped memory · No LLM call" : `Gemini diagnosis · ${result.model}`} · ${result.plan.action}`));
+  target.append(element("p", "", result.plan.rationale));
+  target.append(element("p", "", `Cited evidence events: ${result.plan.evidenceSequences.join(", ")}`));
+  for (const rejected of result.rejectedSkills) target.append(element("p", "", `Rejected reuse: ${rejected.title}. ${rejected.reason}`));
+  if (result.verificationRunId) {
+    const link = element("a", "", "Inspect the independent verification run →");
+    link.href = `#run=${result.verificationRunId}`;
+    link.addEventListener("click", event => { event.preventDefault(); void selectRun(result.verificationRunId); });
+    target.append(link);
+  }
+  if (result.skillId) {
+    const paragraph = element("p");
+    const link = element("a", "", "Download the verified SKILL.md");
+    link.href = `/skills/${result.skillId}/markdown`;
+    paragraph.append(link);
+    target.append(paragraph);
+  }
+}
+
+async function loadInvestigation(runId) {
+  try {
+    const data = await api(`/runs/${runId}/investigation`);
+    if (state.selected?.runId === runId && data.investigation) renderInvestigation(data.investigation);
+  } catch {}
+}
+
+async function loadSkills() {
+  const { skills } = await api("/skills");
+  const target = $("#skill-list");
+  target.replaceChildren();
+  for (const skill of skills) {
+    const card = element("details", "skill-card");
+    card.append(element("summary", "", `${skill.title} · v${skill.version} · ${skill.status}`));
+    card.append(element("div", "skill-meta", `${skill.repositoryId} · ${skill.signature} · expires ${new Date(skill.expiresAt).toLocaleDateString()}`));
+    card.append(element("pre", "", skill.markdown));
+    const actions = element("div", "skill-actions");
+    const download = element("a", "", "Download SKILL.md");
+    download.href = `/skills/${skill._id}/markdown`;
+    actions.append(download);
+    if (skill.status === "active") {
+      const revoke = element("button", "button text-button skill-revoke", "Revoke skill");
+      revoke.addEventListener("click", async () => {
+        try {
+          await api(`/skills/${skill._id}/revoke`, { method: "POST", headers: authorizedHeaders(), body: "{}" });
+          await loadSkills();
+          notice("Skill revoked. Later investigations will not reuse it.");
+        } catch (error) { notice(error.message, "error"); }
+      });
+      actions.append(revoke);
+    }
+    card.append(actions);
+    target.append(card);
+  }
+  if (!skills.length) target.append(element("div", "empty-state", "Investigate a failing run. A skill appears only after its repair passes verification."));
+}
+
+$("#investigate-button").addEventListener("click", async () => {
+  if (state.busy || !state.selected || state.selected.status !== "failed") return;
+  let headers;
+  try { headers = authorizedHeaders(); } catch (error) { notice(error.message, "error"); return; }
+  const runId = state.selected.runId;
+  state.busy = true;
+  const controls = document.querySelectorAll(".case-button, #run-form button, #run-form select, .filters select, #refresh, #investigate-button, .skill-revoke");
+  for (const control of controls) control.disabled = true;
+  notice("Checking scoped repair memory, asking Gemini if needed, then running independent verification…", "busy");
+  try {
+    const result = await api(`/runs/${runId}/investigate`, { method: "POST", headers, body: "{}" });
+    if (state.selected?.runId === runId) renderInvestigation(result);
+    await Promise.all([loadSummary(), loadSkills()]);
+    await loadHistory(false, true);
+    notice(result.status === "verified" ? `Repair verified. ${result.source === "memory" ? "Reused Atlas memory without an LLM call." : "Saved a verified skill to Atlas."}` : "Proposal rejected. No unverified skill was saved.");
+  } catch (error) { notice(error.message, "error"); }
+  finally {
+    state.busy = false;
+    for (const control of controls) control.disabled = false;
+    $("#investigate-button").disabled = state.selected?.status !== "failed";
+  }
+});
 
 $("#run-form").addEventListener("submit", event => { event.preventDefault(); void execute($("#scenario").value, $("#scope").value, $("#schedule").value); });
 for (const button of document.querySelectorAll(".case-button")) button.addEventListener("click", () => void execute(button.dataset.scenario, button.dataset.scope));
