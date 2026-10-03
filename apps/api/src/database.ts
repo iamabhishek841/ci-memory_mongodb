@@ -14,6 +14,7 @@ export async function connectDatabase(): Promise<Db> {
       maxPoolSize: 5,
       serverSelectionTimeoutMS: 8_000,
       connectTimeoutMS: 8_000,
+      timeoutMS: 10_000,
     });
     client = candidate;
     connection = candidate.connect().then(() => candidate.db(config.name));

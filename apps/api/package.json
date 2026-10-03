@@ -8,9 +8,12 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
-    "db:check": "node dist/check-database.js"
+    "db:check": "node dist/check-database.js",
+    "test": "node --test dist/validation.test.js",
+    "test:integration": "node --test dist/history.integration.test.js"
   },
   "dependencies": {
+    "@ci-memory/runner": "0.1.0",
     "mongodb": "^7.7.0"
   }
 }

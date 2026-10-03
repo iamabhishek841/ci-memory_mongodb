@@ -10,13 +10,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=@ci-memory/api",
-    "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev": "npm run build --workspace=@ci-memory/runner && npm run dev --workspace=@ci-memory/api",
+    "build": "npm run build --workspace=@ci-memory/runner && npm run build --workspace=@ci-memory/api",
+    "typecheck": "npm run build --workspace=@ci-memory/runner && npm run typecheck --workspaces --if-present",
     "start": "npm run start --workspace=@ci-memory/api",
-    "db:check": "npm run build --workspace=@ci-memory/api && npm run db:check --workspace=@ci-memory/api",
+    "db:check": "npm run build && npm run db:check --workspace=@ci-memory/api",
     "test": "npm run build && npm run test --workspaces --if-present",
-    "test:integration": "npm run build --workspace=@ci-memory/runner && npm run test:integration --workspace=@ci-memory/runner",
+    "test:integration": "npm run build && npm run test:integration --workspaces --if-present",
     "demo": "npm run demo --workspace=@ci-memory/runner --"
   },
   "devDependencies": {
