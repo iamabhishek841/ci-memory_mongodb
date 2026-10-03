@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFile } from "node:fs/promises";
 import { getDatabaseConfig } from "./config.js";
 import { pingDatabase } from "./database.js";
 import type { RunService } from "./run-service.js";
@@ -40,6 +41,24 @@ export function createApiServer(getService: () => Promise<RunService>) {
 
   async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = new URL(request.url || "/", "http://127.0.0.1");
+    const assets: Record<string, { file: string; type: string }> = {
+      "/": { file: "index.html", type: "text/html; charset=utf-8" },
+      "/dashboard.js": { file: "dashboard.js", type: "text/javascript; charset=utf-8" },
+      "/dashboard.css": { file: "dashboard.css", type: "text/css; charset=utf-8" },
+      "/mark.svg": { file: "mark.svg", type: "image/svg+xml" },
+    };
+    const asset = Object.hasOwn(assets, url.pathname) ? assets[url.pathname] : undefined;
+    if (request.method === "GET" && asset) {
+      const content = await readFile(new URL(`../public/${asset.file}`, import.meta.url));
+      response.writeHead(200, {
+        "Content-Type": asset.type,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+      });
+      response.end(content);
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/health") {
       send(response, 200, { status: "ok", service: "ci-memory-api" });
       return;
