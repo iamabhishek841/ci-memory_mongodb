@@ -44,6 +44,7 @@
           <label>Execution order<select id="schedule"><option value="cleanup-between-write-and-read">Insert → cleanup → read</option><option value="cleanup-before-write">Cleanup → insert → read</option></select></label>
           <button class="button primary" id="run-button" type="submit"><span aria-hidden="true">▷</span> Run fixture</button>
         </form>
+        <label class="access-field" id="access-field" hidden>Demo access key<input id="demo-key" type="password" autocomplete="off" placeholder="Enter the key configured on Render"><small>Required to run fixtures. Saved evidence remains publicly viewable.</small></label>
       </section>
       <div class="work-grid">
         <section class="card history-card" id="history">

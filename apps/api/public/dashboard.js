@@ -1,5 +1,5 @@
 const $ = selector => document.querySelector(selector);
-const state = { runs: [], cursor: null, selected: null, busy: false, historyVersion: 0, selectionVersion: 0 };
+const state = { runs: [], cursor: null, selected: null, busy: false, historyVersion: 0, selectionVersion: 0, writeEnabled: false, writeAccessRequired: false };
 const labels = { billing: "Billing", orders: "Orders", "missing-seed": "Missing seed", shared: "Shared", worker: "Per worker" };
 
 function element(tag, className, text) {
@@ -196,6 +196,8 @@ async function refresh() {
 
 async function execute(scenario, scope, schedule = "cleanup-between-write-and-read") {
   if (state.busy) return;
+  if (!state.writeEnabled) { notice("This hosted demo is currently read-only. You can inspect its saved runs below."); return; }
+  if (state.writeAccessRequired && !$("#demo-key").value.trim()) { notice("Enter the demo access key below the fixture controls to start a run.", "error"); $("#demo-key").focus(); return; }
   state.busy = true;
   const controls = document.querySelectorAll(".case-button, #run-form button, #run-form select, .filters select, #refresh");
   for (const control of controls) control.disabled = true;
@@ -204,7 +206,9 @@ async function execute(scenario, scope, schedule = "cleanup-between-write-and-re
   progress();
   const timer = setInterval(progress, 250);
   try {
-    const run = await api("/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario, scope, schedule }) });
+    const headers = { "Content-Type": "application/json" };
+    if (state.writeAccessRequired) headers.Authorization = `Bearer ${$("#demo-key").value.trim()}`;
+    const run = await api("/runs", { method: "POST", headers, body: JSON.stringify({ scenario, scope, schedule }) });
     clearInterval(timer);
     $("#filter-status").value = "";
     $("#filter-scenario").value = "";
@@ -236,5 +240,11 @@ $("#copy-evidence").addEventListener("click", async () => {
 });
 
 const initialRun = /^#run=([a-f0-9]{32})$/.exec(location.hash)?.[1];
+try {
+  const policy = await api("/app-config");
+  state.writeEnabled = policy.writeEnabled;
+  state.writeAccessRequired = policy.writeAccessRequired;
+  $("#access-field").hidden = !policy.writeAccessRequired;
+} catch { notice("Write access could not be checked. Refresh before starting a fixture.", "error"); }
 await refresh();
 if (initialRun) await selectRun(initialRun);

@@ -1,10 +1,14 @@
-import { getDatabaseConfig, getPort } from "./config.js";
+import { getDatabaseConfig, getHost, getPort, getPublicOrigin } from "./config.js";
+import { writePolicy } from "./access.js";
 import { closeDatabase, connectDatabase } from "./database.js";
 import { createApiServer } from "./http.js";
 import { RunService } from "./run-service.js";
 import { getRunContext, RunStore } from "./run-store.js";
 
 const port = getPort();
+const host = getHost();
+getPublicOrigin();
+writePolicy();
 getDatabaseConfig();
 const context = getRunContext();
 let service: Promise<RunService> | undefined;
@@ -21,7 +25,7 @@ async function getService(): Promise<RunService> {
 
 const server = createApiServer(getService);
 server.on("error", error => { console.error("API failed to start:", error.message); process.exitCode = 1; });
-server.listen(port, "127.0.0.1", () => { console.log(`CI Memory API listening at http://127.0.0.1:${port}`); });
+server.listen(port, host, () => { console.log(`CI Memory API listening on ${host}:${port}`); });
 
 function shutdown(): void {
   server.close(() => { void closeDatabase().then(() => process.exit(0), () => process.exit(1)); });
