@@ -1,0 +1,16 @@
+{
+  "name": "@ci-memory/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/namespaces.test.js",
+    "test:integration": "node --test dist/runner.integration.test.js",
+    "demo": "node dist/cli.js"
+  },
+  "dependencies": {
+    "mongodb": "^7.7.0"
+  }
+}
