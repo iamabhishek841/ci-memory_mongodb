@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
-import { getDatabaseConfig } from "./config.js";
+import { getDatabaseConfig, getPublicOrigin } from "./config.js";
+import { requireWriteAccess, writePolicy } from "./access.js";
 import { pingDatabase } from "./database.js";
 import type { RunService } from "./run-service.js";
 import { parseFixtureRequest, parseHistoryQuery, RequestError } from "./validation.js";
@@ -13,7 +14,8 @@ function send(response: ServerResponse, status: number, body: unknown): void {
 async function readBody(request: IncomingMessage): Promise<unknown> {
   if (request.headers["content-type"]?.split(";")[0]?.trim() !== "application/json") throw new RequestError(415, "Send application/json.");
   const origin = request.headers.origin;
-  if (origin && origin !== `http://${request.headers.host}`) throw new RequestError(403, "Cross-origin run requests are not enabled.");
+  const expectedOrigin = getPublicOrigin() || `http://${request.headers.host}`;
+  if (origin && origin !== expectedOrigin) throw new RequestError(403, "Cross-origin run requests are not enabled.");
   const body = await new Promise<string>((resolve, reject) => {
     let bytes = 0;
     const chunks: Buffer[] = [];
@@ -63,6 +65,10 @@ export function createApiServer(getService: () => Promise<RunService>) {
       send(response, 200, { status: "ok", service: "ci-memory-api" });
       return;
     }
+    if (request.method === "GET" && url.pathname === "/app-config") {
+      send(response, 200, writePolicy());
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/ready") {
       if (!getDatabaseConfig()) { send(response, 503, { status: "not_ready", database: "not_configured" }); return; }
       try { await pingDatabase(); send(response, 200, { status: "ready", database: "connected" }); }
@@ -70,6 +76,7 @@ export function createApiServer(getService: () => Promise<RunService>) {
       return;
     }
     if (request.method === "POST" && url.pathname === "/runs") {
+      requireWriteAccess(request);
       const fixture = parseFixtureRequest(await readBody(request));
       if (url.search) throw new RequestError(400, "Run creation does not accept query parameters.");
       const saved = await (await getService()).execute(fixture);

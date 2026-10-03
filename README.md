@@ -147,6 +147,34 @@ For development, run `npm run dev` in a separate terminal to watch and compile
 TypeScript, then restart `npm start` after changes. This initial dev command
 only compiles; it does not start or restart the API.
 
+## Deploy the dashboard and API on Render
+
+Use the repository's `render.yaml` with Render **New > Blueprint**, connected to
+`main`. It creates one Free Node Web Service for the dashboard and API. The build
+is `npm ci --include=dev && npm run build`; the start command is `npm start`.
+Production binds to `0.0.0.0` and honors Render's `PORT`. Node 24 is configured.
+
+Provide the complete `MONGODB_URI` privately during Blueprint setup. Never add it
+to Git. `MONGODB_DB=ci_memory` preserves the existing demo history. In the Render
+service's **Connect > Outbound** panel, copy its outbound IP ranges into Atlas
+**Network Access**; your laptop's allowed IP does not cover the hosted server.
+
+Render generates `DEMO_WRITE_TOKEN`. Copy it from that service's environment panel
+into the dashboard's **Demo access key** field when presenting live runs. The key
+is sent only in an authorization header, is not included in the public config,
+and is not saved in browser storage. Public visitors can view the authored demo
+history. Hosted execution stays read-only if the token is missing.
+
+Render supplies `RENDER_EXTERNAL_URL` for HTTPS origin validation. Set
+`PUBLIC_ORIGIN=https://your-domain.example` if using a custom domain. Test `/health`,
+`/ready`, the dashboard, and one authorized run after deployment. Free services
+can sleep after 15 minutes of inactivity; open the page ahead of the presentation.
+Keep the local app available if the hosted instance is still starting.
+
+Source: [Render Web Services](https://render.com/docs/web-services),
+[Free services](https://render.com/docs/free),
+[Outbound IP ranges](https://render.com/docs/outbound-ip-addresses).
+
 ## Incremental delivery
 
 1. API and TypeScript foundation.

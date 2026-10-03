@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "db:check": "node dist/check-database.js",
-    "test": "node --test dist/validation.test.js",
+    "test": "node --test dist/validation.test.js dist/deployment.test.js",
     "test:integration": "node --test dist/history.integration.test.js"
   },
   "dependencies": {

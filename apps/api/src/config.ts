@@ -25,3 +25,17 @@ export function getPort(): number {
   }
   return port;
 }
+
+export function getHost(): string {
+  const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
+  if (!["127.0.0.1", "0.0.0.0", "::1"].includes(host)) throw new Error("Unsupported HTTP bind address.");
+  return host;
+}
+
+export function getPublicOrigin(): string | null {
+  const value = process.env.PUBLIC_ORIGIN?.trim() || process.env.RENDER_EXTERNAL_URL?.trim();
+  if (!value) return null;
+  const url = new URL(value);
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("PUBLIC_ORIGIN must be an HTTP(S) origin.");
+  return url.origin;
+}
