@@ -1,17 +1,34 @@
 import { createServer } from "node:http";
+import { getDatabaseConfig, getPort } from "./config.js";
+import { closeDatabase, pingDatabase } from "./database.js";
 
-const port = Number(process.env.PORT ?? "3001");
-if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  throw new Error("PORT must be an integer between 1 and 65535.");
-}
+const port = getPort();
+getDatabaseConfig();
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json; charset=utf-8");
   response.setHeader("Cache-Control", "no-store");
 
   if (request.method === "GET" && request.url === "/health") {
     response.writeHead(200);
     response.end(JSON.stringify({ status: "ok", service: "ci-memory-api" }));
+    return;
+  }
+
+  if (request.method === "GET" && request.url === "/ready") {
+    if (!getDatabaseConfig()) {
+      response.writeHead(503);
+      response.end(JSON.stringify({ status: "not_ready", database: "not_configured" }));
+      return;
+    }
+    try {
+      await pingDatabase();
+      response.writeHead(200);
+      response.end(JSON.stringify({ status: "ready", database: "connected" }));
+    } catch {
+      response.writeHead(503);
+      response.end(JSON.stringify({ status: "not_ready", database: "unavailable" }));
+    }
     return;
   }
 
@@ -29,7 +46,9 @@ server.listen(port, "127.0.0.1", () => {
 });
 
 function shutdown() {
-  server.close(() => process.exit(0));
+  server.close(() => {
+    void closeDatabase().then(() => process.exit(0), () => process.exit(1));
+  });
   setTimeout(() => process.exit(1), 5_000).unref();
 }
 

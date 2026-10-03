@@ -9,9 +9,10 @@ later investigation. A matching error message alone is not proof of the same cau
 
 ## Current status
 
-The repository currently contains the TypeScript API foundation and a local
-health endpoint. The test runner, Atlas persistence, AI investigation, skill
-memory, and dashboard are not implemented yet.
+The repository currently contains the TypeScript API foundation, local health
+and database-readiness endpoints, and a MongoDB connection checker. The test
+runner, run persistence, AI investigation, skill memory, and dashboard are not
+implemented yet.
 
 ## Run locally
 
@@ -30,8 +31,24 @@ Open <http://127.0.0.1:3001/health>. The response should be:
 {"status":"ok","service":"ci-memory-api"}
 ```
 
-No database or LLM credentials are required for this first step. The API binds
-to localhost. `PORT` can override the default port of 3001.
+No database or LLM credentials are required for `/health`. The API binds to
+localhost. `PORT` can override the default port of 3001. `/ready` returns 503
+until the database is configured and reachable.
+
+## Connect MongoDB Atlas
+
+1. Copy `.env.example` to `.env` at the repository root.
+2. In Atlas, choose **Connect > Drivers > Node.js** and copy the URI into
+   `MONGODB_URI`. Replace the password placeholder with the URL-encoded database
+   user password. Do not use your Atlas account login password.
+3. Keep `MONGODB_DB=ci_memory`. Add your current IP to the project's access list.
+4. Run `npm run db:check` to verify connectivity with a read-only ping.
+5. Start the API and visit <http://127.0.0.1:3001/ready>.
+
+The environment file is loaded by the API regardless of your terminal working
+directory. The checker never prints the URI or raw driver error. A successful
+ping does not create application collections; those will appear after the
+first application write. `.env` is ignored by Git.
 
 For development, run `npm run dev` in a separate terminal to watch and compile
 TypeScript, then restart `npm start` after changes. This initial dev command

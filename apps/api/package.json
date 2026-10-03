@@ -7,6 +7,10 @@
     "dev": "tsc --watch",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "db:check": "node dist/check-database.js"
+  },
+  "dependencies": {
+    "mongodb": "^7.7.0"
   }
 }
